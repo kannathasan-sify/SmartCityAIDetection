@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 # Load models once on startup
 # Use yolo11 if yolo26 is not available locally
-MODEL_PATH = os.getenv("MODEL_DET", "yolo11m.pt")
+# Section 6.22: Ultra-Fast Nano Model for Real-time Response
+MODEL_PATH = os.getenv("MODEL_DET", "yolo11n.pt")
 model = YOLO(MODEL_PATH)
 
 # Import measurement services
@@ -58,7 +59,7 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
             print(f"[media] ERROR: All video codecs failed for {output_path}")
             # Non-blocking: continue without baking if possible, or return error
         
-        max_frames = 60
+        max_frames = 30
         frame_idx = 0
         final_detections = []
         temporal_detections = []
@@ -74,8 +75,8 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
             results = model.track(frame, persist=True, conf=0.15, verbose=False)
             first_result = results[0] if results else None
             
-            if frame_idx % 20 == 0:
-                 print(f"[media] Frame {frame_idx} tracking... Found {len(first_result.boxes) if first_result else 0} boxes.")
+            if frame_idx % 5 == 0:
+                 print(f"[media] Processing Frame {frame_idx}/{max_frames}...")
                  
             detections = []
             if first_result:
@@ -213,7 +214,8 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
                 det["crop_url"] = os.path.basename(crop_path)
 
     # (Infrastructure & Surface shared)
-    depth_map = get_depth_map(frame)
+    # Section 6.22: Speed optimization - Skip depth for static images unless requested
+    depth_map = get_depth_map(frame) if is_video else np.zeros(frame.shape[:2], dtype=np.float32)
     infra_data = detect_infrastructure(frame, final_detections, depth_map, px_per_metre)
     surface_data = assess_road_surface(final_detections, frame)
 
