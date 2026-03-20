@@ -107,12 +107,14 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
                 cv2.rectangle(frame, (x1, y1 - h - 10), (x1 + w, y1), color, -1)
                 cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
-            out.write(frame)
+            if out is not None:
+                out.write(frame)
             temporal_detections.append(detections)
             
             # Detailed Logging (Section 6.19)
             if detections:
-                print(f"[media] Frame {frame_idx} Assets: {', '.join([f'{d['class_name'].upper()}({d['confidence']:.2f})' for d in detections])}")
+                asset_str = ", ".join([f'{d.get("class_name", "unknown").upper()}({d.get("confidence", 0):.2f})' for d in detections])
+                print(f"[media] Frame {frame_idx} Assets: {asset_str}")
             
             # Aggregate for the Gallery (Section 6.16)
             for det in detections:
