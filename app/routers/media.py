@@ -28,7 +28,7 @@ async def download_media(filename: str):
     return FileResponse(file_path)
 
 @router.post("/process")
-async def process_media(
+def process_media(
     camera_id: str = "default",
     file: UploadFile = File(...),
 ):
