@@ -48,7 +48,7 @@ def process_media(
             shutil.copyfileobj(file.file, buffer)
         
         print(f"[media] Running inference on {file_path}...")
-        results = run_inference(file_path, camera_id)
+        results = run_inference(file_path, file_id) # Use file_id for absolute tracker isolation
         print(f"[media] Inference complete. Found {len(results['detections'])} detections.")
         
         # Section 6.21: Permanent URL Logging

@@ -35,15 +35,26 @@ class AdvancedSpeedEstimator:
     def estimate_optical_flow(prev_gray, curr_gray, bbox) -> float:
         """Section 6.4: Lucas-Kanade pyramidal tracking of features inside bbox."""
         x1, y1, x2, y2 = map(int, bbox)
-        # ROI inside vehicle
-        roi_prev = prev_gray[y1:y2, x1:x2]
-        roi_curr = curr_gray[y1:y2, x1:x2]
+        
+        # Ensure safely within image bounds
+        h, w = prev_gray.shape
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w, x2), min(h, y2)
+        
+        # Enforce contiguous array copies to avoid OpenCV step/stride assertion errors
+        roi_prev = prev_gray[y1:y2, x1:x2].copy()
+        roi_curr = curr_gray[y1:y2, x1:x2].copy()
+        
         if roi_prev.size == 0 or roi_curr.size == 0:
+            return 0.0
+
+        # OpenCv LK pyramidal flow crashes if image size < winSize at the top level
+        if roi_prev.shape[0] < 15 or roi_prev.shape[1] < 15:
             return 0.0
 
         # Find features to track (Shi-Tomasi)
         p0 = cv2.goodFeaturesToTrack(roi_prev, maxCorners=20, qualityLevel=0.3, minDistance=7)
-        if p0 is None:
+        if p0 is None or len(p0) == 0:
             return 0.0
 
         # Lucas-Kanade
@@ -51,7 +62,7 @@ class AdvancedSpeedEstimator:
                         criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
         p1, st, err = cv2.calcOpticalFlowPyrLK(roi_prev, roi_curr, p0, None, **lk_params)
 
-        if p1 is None:
+        if p1 is None or st is None:
             return 0.0
 
         # Calculate median displacement (Section 6.4 requirement: median displacement suppress noise)
