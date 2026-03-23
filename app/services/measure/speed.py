@@ -33,7 +33,7 @@ class AdvancedSpeedEstimator:
 
     @staticmethod
     def estimate_optical_flow(prev_gray, curr_gray, bbox) -> float:
-        """Section 6.4: Lucas-Kanade pyramidal tracking of features inside bbox."""
+        """Section 6.4: Lucas-Kanade pyramidal tracking of features."""
         x1, y1, x2, y2 = map(int, bbox)
         
         # Ensure safely within image bounds
@@ -41,31 +41,31 @@ class AdvancedSpeedEstimator:
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(w, x2), min(h, y2)
         
-        # Enforce contiguous array copies to avoid OpenCV step/stride assertion errors
+        # We only slice to FIND good features (avoiding feature extraction on the whole image for speed)
         roi_prev = prev_gray[y1:y2, x1:x2].copy()
-        roi_curr = curr_gray[y1:y2, x1:x2].copy()
         
-        if roi_prev.size == 0 or roi_curr.size == 0:
+        if roi_prev.size == 0 or roi_prev.shape[0] < 15 or roi_prev.shape[1] < 15:
             return 0.0
 
-        # OpenCv LK pyramidal flow crashes if image size < winSize at the top level
-        if roi_prev.shape[0] < 15 or roi_prev.shape[1] < 15:
-            return 0.0
-
-        # Find features to track (Shi-Tomasi)
+        # Find features to track loosely inside the vehicle box
         p0 = cv2.goodFeaturesToTrack(roi_prev, maxCorners=20, qualityLevel=0.3, minDistance=7)
         if p0 is None or len(p0) == 0:
             return 0.0
 
-        # Lucas-Kanade
+        # OVERRIDE FIX: Shift the coordinates from ROI-relative to FULL-FRAME relative
+        # This completely completely bypasses the OpenCV 4.11 slicing/pyramid geometry assertion crash!
+        p0[:, 0, 0] += x1
+        p0[:, 0, 1] += y1
+
+        # Lucas-Kanade (Running on FULL prev_gray and curr_gray which are guaranteed identical resolution)
         lk_params = dict(winSize=(15, 15), maxLevel=2,
                         criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-        p1, st, err = cv2.calcOpticalFlowPyrLK(roi_prev, roi_curr, p0, None, **lk_params)
+        
+        p1, st, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray, p0, None, **lk_params)
 
         if p1 is None or st is None:
             return 0.0
 
-        # Calculate median displacement (Section 6.4 requirement: median displacement suppress noise)
         good_new = p1[st == 1]
         good_old = p0[st == 1]
         if len(good_new) == 0:
