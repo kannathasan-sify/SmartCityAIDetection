@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 
 # Load models once on startup
 # Use yolo11 if yolo26 is not available locally
-# Section 6.22: Ultra-Fast Nano Model for Real-time Response
-MODEL_PATH = os.getenv("MODEL_DET", "yolo11n.pt")
+# Section 6.22: Latest YOLO26 evolution for NMS-free real-time response
+MODEL_PATH = os.getenv("MODEL_DET", "yolo26n.pt")
 model = YOLO(MODEL_PATH)
 
 # Import measurement services
@@ -66,14 +66,18 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
         video_gallery_map = {} # Track unique objects for the horizontal gallery
         last_frame = None
         
-        while frame_idx < max_frames:
-            ret, frame = cap.read()
-            if not ret: break
-            
+        cap.release() # Release manual cap since we will stream natively with YOLO
+
+        # Stream natively via Ultralytics to guarantee exact Tracker Isolation per File
+        results_generator = model.track(source=file_path, conf=0.15, stream=True, verbose=False)
+        
+        for first_result in results_generator:
+            if frame_idx >= max_frames: break
+            frame = first_result.orig_img
             last_frame = frame
-            # Section 6.13/6.19: Increased Sensitivity (Conf 0.15 for V4.0 Intelligence)
-            results = model.track(frame, persist=True, conf=0.15, verbose=False)
-            first_result = results[0] if results else None
+            
+            # Simulated list wrapper to match legacy code compatibility downstream
+            results = [first_result]
             
             if frame_idx % 5 == 0:
                  print(f"[media] Processing Frame {frame_idx}/{max_frames}...")
@@ -151,15 +155,10 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
         if frame is None:
             return {"error": "Could not read image"}
 
-        # Use 0.15 threshold for maximum "V4.0" Intelligence sensitivity
-        results = model.track(frame, persist=True, conf=0.15, verbose=False)
+        # For single images, ALWAYS use standard prediction. Tracking a single image
+        # against a shared singleton tracker history strictly causes OpenCV geometry crashes!
+        results = model(frame, conf=0.15, verbose=False)
         first_result = results[0] if results else None
-        
-        # Fallback to standard predict if track yields nothing (common for high-noise stills)
-        if not first_result or len(first_result.boxes) == 0:
-            print("[media] Tracking failed to find assets, falling back to standard prediction...")
-            results = model(frame, conf=0.15, verbose=False)
-            first_result = results[0] if results else None
             
         print(f"[media] Image Detection... Found {len(first_result.boxes) if first_result else 0} boxes.")
 
