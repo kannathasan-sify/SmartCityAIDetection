@@ -177,7 +177,10 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
                 print(f"[media]  - Asset: {det_obj['class_name'].upper()} (Conf: {det_obj['confidence']:.4f})")
 
         px_per_metre = estimate_pixel_per_metre(detections, frame.shape[1])
-        final_detections = compute_v6_speed(camera_id, frame, detections, px_per_metre)
+        # Section 6.14: Disable speed for static images to prevent Optical Flow assertion crashes
+        final_detections = detections 
+        for det in final_detections:
+            det["speed_kmh"] = 0.0
         
         # Section 6.15: Image Baking (Consistency with Video)
         processed_image_path = file_path.replace(ext, f"_processed.jpg")
