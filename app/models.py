@@ -98,6 +98,7 @@ class IngestPayload(BaseModel):
     tree_coverage_pct: Optional[float] = None
     surface_condition: Optional[SurfaceCondition] = None
     lane_speeds: Optional[Dict[str, Any]] = None
+    is_narrowed: Optional[bool] = None
 
 
 class RoadEvent(BaseModel):

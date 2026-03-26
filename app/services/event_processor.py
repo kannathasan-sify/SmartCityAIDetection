@@ -2,6 +2,7 @@
 from app.models import IngestPayload, RoadEvent
 from app.services.supabase_client import supabase
 from app.services.ws_manager import manager
+from app.services.reasoning import IncidentReasoner
 from datetime import datetime, timezone
 
 CONGESTION_THRESHOLD = 15
@@ -45,6 +46,10 @@ async def process_frame_detections(payload: IngestPayload):
         lat, lng = 0.0, 0.0
 
     events: list[RoadEvent] = []
+
+    # ── AI Reasoning (Section 6.25: situational awareness) ───────────────────
+    ai_incidents = IncidentReasoner.classify_incidents(payload, lat, lng)
+    events.extend(ai_incidents)
 
     # ── Traffic events ────────────────────────────────────────────────────────
     if vehicle_count >= CONGESTION_THRESHOLD:
@@ -210,6 +215,18 @@ async def process_frame_detections(payload: IngestPayload):
                 lat=lat,
                 lng=lng,
                 description=f"Hazard detected: {h_type.replace('_', ' ').title()}",
+            )
+        )
+    
+    if payload.is_narrowed:
+        events.append(
+            RoadEvent(
+                camera_id=payload.camera_id,
+                event_type="infrastructure",
+                severity="high",
+                lat=lat,
+                lng=lng,
+                description=f"Road narrowing detected! Lane width: {payload.lane_width_m}m. Potential obstruction.",
             )
         )
 

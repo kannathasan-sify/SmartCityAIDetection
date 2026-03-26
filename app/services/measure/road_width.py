@@ -65,9 +65,14 @@ def measure_road_width(
     # Estimate lane count: standard lane = 3.5m
     lane_count = max(1, round(road_width_m / 3.5))
     lane_width_m = round(road_width_m / lane_count, 2)
+    
+    # Section 6.18: Narrowing Anomaly detection (v1.4 roadmap)
+    # If lane is < 2.8m, it's considered restricted/narrrowed
+    narrowing_alert = lane_width_m < 2.8
 
     return {
         "road_width_m":  road_width_m,
         "lane_width_m":  lane_width_m,
         "lane_count":    lane_count,
+        "is_narrowed":   narrowing_alert
     }

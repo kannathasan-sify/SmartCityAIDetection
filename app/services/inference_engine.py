@@ -240,6 +240,7 @@ def run_inference(file_path: str, camera_id: str = "default") -> Dict[str, Any]:
             "road_width_m": road_metrics["road_width_m"],
             "lane_width_m": road_metrics.get("lane_width_m", 0),
             "lane_count": road_metrics.get("lane_count", 0),
+            "is_narrowed": road_metrics.get("is_narrowed", False),
             "lane_speeds": final_lane_speeds,
             "surface": surface_data,
             "infrastructure": infra_data

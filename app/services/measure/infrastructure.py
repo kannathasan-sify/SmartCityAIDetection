@@ -101,27 +101,47 @@ def detect_infrastructure(
     }
 
 def classify_light_status(roi: np.ndarray) -> str:
+    """Enhanced glow detection for maintenance scheduling (v1.3)."""
     if roi.size == 0: return "UNKNOWN"
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    
     avg_v = float(np.mean(hsv[:, :, 2]))
-    if avg_v > 200: return "ON"
-    elif avg_v > 80: return "FLICKERING"
-    elif avg_v > 20: return "DAMAGED"
-    else: return "OFF"
+    # Use Laplacian variance to detect "glow" (active light source)
+    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    
+    if avg_v > 200 and laplacian_var > 100: 
+        return "ON"
+    elif avg_v > 150: 
+        return "DIM"
+    elif avg_v > 50: 
+        return "OFF"
+    else: 
+        return "DAMAGED"
 
 def classify_signal_state(roi: np.ndarray) -> str:
+    """Maintenance check for traffic signal heads."""
     if roi.size == 0: return "UNKNOWN"
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    red1 = cv2.inRange(hsv, (0, 120, 120), (10, 255, 255))
-    red2 = cv2.inRange(hsv, (160, 120, 120), (180, 255, 255))
+    
+    # Red range
+    red1 = cv2.inRange(hsv, (0, 70, 50), (10, 255, 255))
+    red2 = cv2.inRange(hsv, (160, 70, 50), (180, 255, 255))
     red_px = cv2.countNonZero(red1) + cv2.countNonZero(red2)
-    amber_px = cv2.countNonZero(cv2.inRange(hsv, (10, 120, 120), (30, 255, 255)))
-    green_px = cv2.countNonZero(cv2.inRange(hsv, (40, 80, 80), (90, 255, 255)))
-    total = max(red_px + amber_px + green_px, 1)
-    if red_px / total > 0.3: return "RED"
-    elif amber_px / total > 0.3: return "AMBER"
-    elif green_px / total > 0.3: return "GREEN"
-    else: return "UNKNOWN"
+    
+    # Amber/Yellow
+    amber_px = cv2.countNonZero(cv2.inRange(hsv, (15, 70, 50), (35, 255, 255)))
+    
+    # Green
+    green_px = cv2.countNonZero(cv2.inRange(hsv, (40, 70, 50), (95, 255, 255)))
+    
+    total = red_px + amber_px + green_px
+    if total < 5: return "OFF" # No active signal detected
+    
+    if red_px > amber_px and red_px > green_px: return "RED"
+    if amber_px > red_px and amber_px > green_px: return "AMBER"
+    if green_px > red_px and green_px > amber_px: return "GREEN"
+    return "TRANSITION"
 
 def compute_pole_spacing(poles: list[dict], px_per_metre: float) -> list[float]:
     if len(poles) < 2 or px_per_metre is None: return []

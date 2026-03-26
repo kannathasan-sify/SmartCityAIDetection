@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import ingest, events, cameras, heatmap, websocket, media, assets
+from app.routers import ingest, events, cameras, heatmap, websocket, media, assets, analytics
 from app.config import settings
 
 app = FastAPI(
@@ -32,6 +32,7 @@ app.include_router(heatmap.router,   prefix="/heatmap",  tags=["Heatmap"])
 app.include_router(assets.router,    prefix="/assets",    tags=["Assets"])
 app.include_router(websocket.router, prefix="/ws",       tags=["Stream"])
 app.include_router(media.router,     prefix="/media",    tags=["Media"])
+app.include_router(analytics.router, prefix="/analytics",tags=["Analytics"])
 
 @app.get("/", tags=["Health"])
 async def root():
